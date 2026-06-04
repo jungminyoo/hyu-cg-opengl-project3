@@ -7,17 +7,30 @@ import numpy as np
 
 from cameras import OrbitCamera
 from projections import PerspectiveProjection
-from experience import Window, Light, Node
-from objects import Cube, Diamond, Frame, Grid, OBJModel
+from experience import Window, Light, Node, DanceBattleSystem
+from objects import Diamond, Frame, Grid, OBJModel, Character
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 def main():
+    # initialize console UI
+    dances = {
+        "HipHop": (os.path.join(BASE_DIR, "motions", "dances", "hiphop.bvh"), 0.15, -1.6),
+        "ChaCha": (os.path.join(BASE_DIR, "motions", "dances", "chacha.bvh"), 0.06, 1.4),
+        "Zumba": (os.path.join(BASE_DIR, "motions", "dances", "zumba.bvh"), 0.15, -1.6),
+        "Salsa": (os.path.join(BASE_DIR, "motions", "dances", "salsa.bvh"), 0.15, -1.7),
+        "Reggaeton": (os.path.join(BASE_DIR, "motions", "dances", "reggaeton.bvh"), 0.15, -1.7),
+    }
+
+    user_characters: dict[str, Character] = {}
+    computer_characters: dict[str, Character] = {}
+
+    system = DanceBattleSystem(list(dances.keys()))
     
     # initialize environments
-    camera = OrbitCamera(45, 60, 10)
+    camera = OrbitCamera(20, 60, 30)
     perspective = PerspectiveProjection(1080, 1080, 45, .1, 50)
-    window = Window(1080, 1080, "Project 2", perspective, camera)
+    window = Window(1080, 1080, "Project 3", perspective, camera)
     light = Light(glm.vec3(20, 20, 20), glm.vec3(1, 1, 1))
 
     # initialize nodes
@@ -28,47 +41,9 @@ def main():
     node_camera_center_diamond.set_transform(glm.translate(camera.current_center))
     node_camera_center_diamond.update_tree_global_transform()
     
-    # base and city node
+    # nodes
     base = Node(None, I)
-    node_city = Node(base, 
-                     glm.translate(glm.vec3(2, -0.2, 4)) *
-                     glm.scale(glm.vec3(.005,.005,.005))
-                    )
-    
-    # drone nodes
-    drone_scale = glm.scale(glm.vec3(0.05, 0.05, 0.05))
-    node_drone1 = Node(node_city, drone_scale)
-    node_drone2 = Node(node_city, drone_scale)
-    node_drone3 = Node(node_city, drone_scale)
-    node_drone4 = Node(node_city, drone_scale)
-    node_drone5 = Node(node_city, drone_scale)
-
-    drone_nodes = [
-        node_drone1,
-        node_drone2,
-        node_drone3,
-        node_drone4,
-        node_drone5,
-    ]
-
-    drone_params = [
-        # radius, speed, height, floating_amp, floating_speed, phase
-        (1.0, 0.9, 1.2, 0.15, 1.3, 0.0),
-        (1.4, 0.6, 1.5, 0.18, 1.0, 1.2),
-        (1.8, 1.1, 1.8, 0.12, 1.6, 2.4),
-        (2.2, 0.45, 2.1, 0.20, 0.8, 3.1),
-        (2.6, 0.75, 2.4, 0.16, 1.4, 4.0),
-    ]
-    
-    # motorcycle node
-    node_motorcycle = Node(node_city, glm.rotate(glm.radians(180), glm.vec3(0,1,0)))
-    
-    # aircraft node
-    node_aircraft = Node(node_motorcycle, 
-                         glm.rotate(glm.radians(180), glm.vec3(0,1,0)) *
-                         glm.scale(glm.vec3(0.1, 0.1, 0.1))
-                        )
-    
+    node_stage = Node(base, glm.translate((1.2, -0.2, 0)))
     base.update_tree_global_transform()
     
     # initialize objects
@@ -76,51 +51,167 @@ def main():
     frame_world = Frame(camera, perspective, base, 10)
     camera_center_diamond = Diamond(glm.vec3(0.45, 0.70, 0.45), camera, perspective, light, node_camera_center_diamond, .1)
     
-    # city object
-    city = OBJModel(
-        glm.vec3(0.8, 0.8, 0.75), camera, perspective, light, node_city, 
-        os.path.join(BASE_DIR, "models", "city.obj")
+    stage = OBJModel(
+        glm.vec3(0.8,0.8,0.8), 
+        camera, 
+        perspective, 
+        light, 
+        node_stage, 
+        os.path.join(BASE_DIR, "models", "stage.obj"),
     )
     
-    # drone objects
-    drone1 = OBJModel(
-        glm.vec3(0.95, 0.35, 0.35), camera, perspective, light, node_drone1, 
-        os.path.join(BASE_DIR, "models", "drone.obj")
+    # initialize characters
+    for name, item in dances.items():
+        path, scale, init_y_position = item
+        
+        user_characters[name] = Character(
+            camera,
+            perspective,
+            light,
+            path,
+            scale,
+            glm.vec3(0.2, 1.0, 0.2),
+            glm.vec3(2, init_y_position, 0),
+            0
+        )
+
+        computer_characters[name] = Character(
+            camera,
+            perspective,
+            light,
+            path,
+            scale,
+            glm.vec3(1.0, 0.2, 0.2),
+            glm.vec3(-2, init_y_position, 0),
+            0
+        )
+
+    user_characters["win"] = Character(
+        camera,
+        perspective,
+        light,
+        os.path.join(BASE_DIR, "motions", "results", "win.bvh"),
+        0.03,
+        glm.vec3(0.2, 1.0, 0.2),
+        glm.vec3(0, 1.15, 2),
+        90
     )
-    drone2 = OBJModel(
-        glm.vec3(0.35, 0.65, 0.95), camera, perspective, light, node_drone2, 
-        os.path.join(BASE_DIR, "models", "drone.obj")
+    user_characters["lose"] = Character(
+        camera,
+        perspective,
+        light,
+        os.path.join(BASE_DIR, "motions", "results", "lose.bvh"),
+        0.03,
+        glm.vec3(0.2, 1.0, 0.2),
+        glm.vec3(0, 1.4, -2),
+        90
     )
-    drone3 = OBJModel(
-        glm.vec3(0.45, 0.85, 0.55), camera, perspective, light, node_drone3, 
-        os.path.join(BASE_DIR, "models", "drone.obj")
+
+    computer_characters["win"] = Character(
+        camera,
+        perspective,
+        light,
+        os.path.join(BASE_DIR, "motions", "results", "win.bvh"),
+        0.03,
+        glm.vec3(1.0, 0.2, 0.2),
+        glm.vec3(0, 1.15, -2),
+        90
     )
-    drone4 = OBJModel(
-        glm.vec3(0.95, 0.75, 0.35), camera, perspective, light, node_drone4, 
-        os.path.join(BASE_DIR, "models", "drone.obj")
-    )
-    drone5 = OBJModel(
-        glm.vec3(0.75, 0.45, 0.95), camera, perspective, light, node_drone5, 
-        os.path.join(BASE_DIR, "models", "drone.obj")
+    computer_characters["lose"] = Character(
+        camera,
+        perspective,
+        light,
+        os.path.join(BASE_DIR, "motions", "results", "lose.bvh"),
+        0.03,
+        glm.vec3(1.0, 0.2, 0.2),
+        glm.vec3(0, 1.4, -6),
+        90
     )
     
-    # motorcycle object
-    motorcycle = OBJModel(
-        glm.vec3(0.6, 0.7, 0.8), camera, perspective, light, node_motorcycle, 
-        os.path.join(BASE_DIR, "models", "motorcycle.obj")
+    # initialize crowds
+    crowd1 = Character(
+        camera, 
+        perspective, 
+        light, 
+        os.path.join(BASE_DIR, "motions", "crowds", "crowd1.bvh"),
+        0.015,
+        glm.vec3(0.95, 0.35, 0.35),
+        glm.vec3(8, 0, 0),
+        -90
     )
-    
-    # aircraft object
-    aircraft = OBJModel(
-        glm.vec3(0.8, 0.7, 0.5), camera, perspective, light, node_aircraft, 
-        os.path.join(BASE_DIR, "models", "aircraft.obj")
+    crowd1.play()
+    crowd2 = Character(
+        camera, 
+        perspective, 
+        light, 
+        os.path.join(BASE_DIR, "motions", "crowds", "crowd2.bvh"),
+        0.015,
+        glm.vec3(0.30, 0.65, 1.00),
+        glm.vec3(8, 0, 3),
+        -90
     )
+    crowd2.play()
+    crowd3 = Character(
+        camera, 
+        perspective, 
+        light, 
+        os.path.join(BASE_DIR, "motions", "crowds", "crowd3.bvh"),
+        0.015,
+        glm.vec3(0.35, 0.85, 0.45),
+        glm.vec3(8, 0, 6),
+        -90
+    )
+    crowd3.play()
+    crowd4 = Character(
+        camera, 
+        perspective, 
+        light, 
+        os.path.join(BASE_DIR, "motions", "crowds", "crowd4.bvh"),
+        0.015,
+        glm.vec3(1.00, 0.75, 0.25), 
+        glm.vec3(8, 0, -3),
+        -90
+    )
+    crowd4.play()
+    crowd5 = Character(
+        camera, 
+        perspective, 
+        light, 
+        os.path.join(BASE_DIR, "motions", "crowds", "crowd5.bvh"),
+        0.015,
+        glm.vec3(0.75, 0.45, 1.00), 
+        glm.vec3(8, 0, -6),
+        -90
+    )
+    crowd5.play()
     
     prev_t = glfwGetTime()
-    motor_history = []
 
     # loop until the user closes the window
     while not window.should_close:
+        # update console UI
+        system.update()
+
+        if system.should_quit:
+            glfwSetWindowShouldClose(window.window, GLFW_TRUE)
+
+        if system.state == DanceBattleSystem.STATE_WAIT_RESTART \
+            and system.final_winner != None:
+            if system.final_winner == "User":
+                user_characters["win"].play()
+                computer_characters["lose"].play()
+            elif system.final_winner == "Computer":
+                user_characters["lose"].play()
+                computer_characters["win"].play()
+            if system.final_winner == "Draw":
+                user_characters["win"].play()
+                computer_characters["win"].play()
+        else:
+            if system.current_user_choice is not None:
+                user_characters[system.current_user_choice].play()
+            if system.current_computer_choice is not None:
+                computer_characters[system.current_computer_choice].play()
+        
         # enable depth test
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         glEnable(GL_DEPTH_TEST)
@@ -133,144 +224,64 @@ def main():
         prev_t = t
         
         # update V matrix
-        camera.update(delta)
+        camera.update(delta, system.state)
+        
+        # update light
+        if system.state in (DanceBattleSystem.STATE_USER_DANCING,
+                            DanceBattleSystem.STATE_COMPUTER_DANCING,
+                            DanceBattleSystem.STATE_COMPUTER_REVEAL,
+                            DanceBattleSystem.STATE_ROUND_RESULT,
+                            DanceBattleSystem.STATE_WAIT_NEXT_ROUND):
+            light.light_color.data = glm.vec3(
+                glm.abs(glm.sin(t * 2) + 1.234) * 0.4 + 0.4,
+                glm.abs(glm.cos(t * 2) + 0.778) * 0.4 + 0.4,
+                glm.abs(glm.sin(t * 2) - 0.132) * 0.4 + 0.4,
+            )
+        else: light.light_color.data = glm.vec3(1, 1, 1)
 
-
-        # update M matrices
-        # center diamond
+        # update center diamond node
         T_float = glm.translate(glm.vec3(0, .1 * np.sin(t), 0))
         M_camera_center_diamond = glm.translate(camera.current_center) * T_float
         node_camera_center_diamond.set_transform(M_camera_center_diamond)
         node_camera_center_diamond.update_tree_global_transform()
         
-        # city
-        city_angle = t * 0.15
-
-        city_x = 3.0 * np.cos(city_angle)
-        city_z = 3.0 * np.sin(city_angle)
-        city_y = 0.3 * np.sin(t * 0.7)
-
-        T_city = glm.translate(glm.vec3(city_x, city_y, city_z))
-        R_tilt = (
-            glm.rotate(np.radians(20), glm.vec3(1, 0, 0)) *
-            glm.rotate(np.radians(15), glm.vec3(0, 0, 1))
-        )
-        R_spin = glm.rotate(t * 0.2, glm.vec3(0, 1, 0))
-
-        node_city.set_transform(
-            T_city *
-            R_spin *
-            R_tilt
-        )
-        
-        # drones
-        for node_drone, (radius, speed, height, float_amp, float_speed, phase) in zip(drone_nodes, drone_params):
-            angle = t * speed + phase
-
-            x = radius * np.cos(angle)
-            z = radius * np.sin(angle)
-            y = height + float_amp * np.sin(t * float_speed + phase)
-
-            T_orbit = glm.translate(glm.vec3(x, y, z))
-            R_heading = glm.rotate(-angle + np.radians(90), glm.vec3(0, 1, 0))
-
-            node_drone.set_transform(T_orbit * R_heading)
-            
-        # motorcycle
-        motor_t = t * 0.6
-
-        motor_x = (
-            2.8 * np.sin(motor_t)
-            + 0.8 * np.sin(motor_t * 2.3)
-        )
-        motor_z = (
-            2.0 * np.cos(motor_t * 0.8)
-            + 0.6 * np.sin(motor_t * 1.7)
-        )
-        motor_y = (
-            0.2
-            + 0.08 * np.sin(t * 3.0)
-        )
-
-        # 진행 방향 계산
-        future_x = (
-            2.8 * np.sin(motor_t + 0.01)
-            + 0.8 * np.sin((motor_t + 0.01) * 2.3)
-        )
-        future_z = (
-            2.0 * np.cos((motor_t + 0.01) * 0.8)
-            + 0.6 * np.sin((motor_t + 0.01) * 1.7)
-        )
-
-        dir_x = future_x - motor_x
-        dir_z = future_z - motor_z
-
-        heading = np.arctan2(dir_x, dir_z)
-
-        T_motor = glm.translate(glm.vec3(
-            motor_x,
-            motor_y,
-            motor_z
-        ))
-        R_motor_heading = glm.rotate(
-            heading,
-            glm.vec3(0, 1, 0)
-        )
-        R_motor_tilt = (
-            glm.rotate(np.radians(10) * np.sin(t * 4), glm.vec3(0, 0, 1)) *
-            glm.rotate(np.radians(-6), glm.vec3(1, 0, 0))
-        )
-
-        node_motorcycle.set_transform(
-            T_motor *
-            R_motor_heading *
-            R_motor_tilt
-        )
-
-        # motorcycle history backup
-        motor_history.append(glm.vec3(motor_x, motor_y, motor_z))
-        if len(motor_history) > 200:
-            motor_history.pop(0)
-        
-        # aircraft
-        if len(motor_history) > 40:
-            target_pos = motor_history[0]
-
-            air_x = target_pos.x + 0.5
-            air_y = target_pos.y + 0.8 + 0.15 * np.sin(t * 2.5)
-            air_z = target_pos.z
-
-            T_air = glm.translate(glm.vec3(
-                air_x,
-                air_y,
-                air_z
-            ))
-            R_air = (
-                glm.rotate(heading, glm.vec3(0, 1, 0)) *
-                glm.rotate(np.radians(8) * np.sin(t * 3), glm.vec3(0, 0, 1))
-            )
-
-            node_aircraft.set_transform(
-                T_air *
-                R_air
-            )
-            
+        # update nodes
         base.update_tree_global_transform()
-
 
         # draw
         frame_world.draw()
         if window.grid_enabled: grid.draw()
-        if camera.center_enabled: camera_center_diamond.draw()
+        if camera.center_enabled and \
+            not (system.state in 
+                    (DanceBattleSystem.STATE_USER_DANCING, 
+                    DanceBattleSystem.STATE_COMPUTER_DANCING,
+                    DanceBattleSystem.STATE_WAIT_RESTART)
+            ): camera_center_diamond.draw()
         
-        city.draw()
-        drone1.draw()
-        drone2.draw()
-        drone3.draw()
-        drone4.draw()
-        drone5.draw()
-        motorcycle.draw()
-        aircraft.draw()
+        stage.draw()
+        
+        if system.state == DanceBattleSystem.STATE_WAIT_RESTART \
+            and system.final_winner != None:
+            if system.final_winner == "User":
+                user_characters["win"].draw()
+                computer_characters["lose"].draw()
+            elif system.final_winner == "Computer":
+                user_characters["lose"].draw()
+                computer_characters["win"].draw()
+            if system.final_winner == "Draw":
+                user_characters["win"].draw()
+                computer_characters["win"].draw()
+        else:
+            if system.current_user_choice is not None:
+                user_characters[system.current_user_choice].draw()
+            if system.current_computer_choice is not None:
+                computer_characters[system.current_computer_choice].draw()
+        
+        crowd1.draw()
+        crowd2.draw()
+        crowd3.draw()
+        crowd4.draw()
+        crowd5.draw()
         
         window.update()         # update window
 

@@ -1,7 +1,7 @@
 from OpenGL.GL import *
 import glm
 
-from experience import Uniform, Shader, Light, Node
+from experience import Uniform, Shader, Light, Node, JointLinkNode
 from projections import Projection
 from cameras import Camera
 
@@ -123,7 +123,7 @@ class Object:
         camera: Camera, 
         projection: Projection, 
         light: Light, 
-        node: Node,
+        node: Node | JointLinkNode,
         is_seperate: bool
     ):
         super().__init__()

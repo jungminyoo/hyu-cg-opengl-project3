@@ -4,3 +4,4 @@ from .diamond import Diamond
 from .frame import Frame
 from .grid import Grid
 from .model import OBJModel
+from .character import Character

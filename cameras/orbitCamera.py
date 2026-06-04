@@ -3,7 +3,7 @@ import glm
 import numpy as np
 
 from .camera import Camera
-from experience import AffineMatrix
+from experience import AffineMatrix, DanceBattleSystem
 
 class OrbitCamera(Camera):
     '''class for orbit camera'''
@@ -14,15 +14,18 @@ class OrbitCamera(Camera):
         # for rotation
         self._current_spherical_angle = glm.vec2(np.radians(init_hor_angle_deg), np.radians(init_ver_angle_deg))
         self._target_spherical_angle = glm.vec2(np.radians(init_hor_angle_deg), np.radians(init_ver_angle_deg))
+        self._buffer_spherical_angle = None
         
         # for panning
         self._current_center = glm.vec3(0, 0, 0)
         self._target_center = glm.vec3(0, 0, 0)
+        self._buffer_center = None
         self._pan_speed = 0.01
         
         # for zoom
         self._current_radius = init_radius
         self._target_radius = init_radius
+        self._buffer_radius = None
         self._zoom_speed = 0.1
         
         # flags
@@ -44,10 +47,47 @@ class OrbitCamera(Camera):
         self._center_enabled = True
         
         self._V = AffineMatrix(glm.mat4())
-        self.update(0)
-        
-    def update(self, delta):
-        self._update_key_control()
+        self.update(0, None)
+    
+    def _backup_camera_states(self):
+        self._buffer_spherical_angle = self._target_spherical_angle
+        self._buffer_radius = self._target_radius
+        self._buffer_center = self._target_center
+    def _restore_camera_states(self):
+        self._target_spherical_angle = self._buffer_spherical_angle
+        self._target_radius = self._buffer_radius
+        self._target_center = self._buffer_center
+        self._buffer_spherical_angle = None
+        self._buffer_radius = None
+        self._buffer_center = None
+    
+    def update(self, delta, state):
+        if state in (DanceBattleSystem.STATE_USER_DANCING, 
+                     DanceBattleSystem.STATE_COMPUTER_DANCING,
+                     DanceBattleSystem.STATE_WAIT_RESTART):
+            if self._buffer_spherical_angle == None \
+                and self._buffer_radius == None \
+                and self._buffer_center == None:
+                    self._backup_camera_states()
+            
+            if state == DanceBattleSystem.STATE_USER_DANCING:
+                self._target_spherical_angle = glm.vec2(np.radians(0), np.radians(90))
+                self._target_center = glm.vec3(2, 3, 0)
+                self._target_radius = 10
+            elif state == DanceBattleSystem.STATE_COMPUTER_DANCING:
+                self._target_spherical_angle = glm.vec2(np.radians(0), np.radians(90))
+                self._target_center = glm.vec3(-2, 3, 0)
+                self._target_radius = 10
+            elif state == DanceBattleSystem.STATE_WAIT_RESTART:
+                self._target_spherical_angle = glm.vec2(np.radians(0), np.radians(90))
+                self._target_center = glm.vec3(0, 3, 0)
+                self._target_radius = 20
+        else: 
+            if self._buffer_spherical_angle != None \
+                or self._buffer_radius != None \
+                or self._buffer_center != None:
+                    self._restore_camera_states()
+            self._update_key_control()
         
         # lerping rotation and panning
         lerping_alpha = delta * 3
