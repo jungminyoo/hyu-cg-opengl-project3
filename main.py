@@ -260,28 +260,29 @@ def main():
         
         stage.draw()
         
+        motion_speed = delta * system.motion_speed
         if system.state == DanceBattleSystem.STATE_WAIT_RESTART \
             and system.final_winner != None:
             if system.final_winner == "User":
-                user_characters["win"].draw()
-                computer_characters["lose"].draw()
+                user_characters["win"].draw(motion_speed)
+                computer_characters["lose"].draw(motion_speed)
             elif system.final_winner == "Computer":
-                user_characters["lose"].draw()
-                computer_characters["win"].draw()
+                user_characters["lose"].draw(motion_speed)
+                computer_characters["win"].draw(motion_speed)
             if system.final_winner == "Draw":
-                user_characters["win"].draw()
-                computer_characters["win"].draw()
+                user_characters["win"].draw(motion_speed)
+                computer_characters["win"].draw(motion_speed)
         else:
             if system.current_user_choice is not None:
-                user_characters[system.current_user_choice].draw()
+                user_characters[system.current_user_choice].draw(motion_speed)
             if system.current_computer_choice is not None:
-                computer_characters[system.current_computer_choice].draw()
+                computer_characters[system.current_computer_choice].draw(motion_speed)
         
-        crowd1.draw()
-        crowd2.draw()
-        crowd3.draw()
-        crowd4.draw()
-        crowd5.draw()
+        crowd1.draw(motion_speed)
+        crowd2.draw(motion_speed)
+        crowd3.draw(motion_speed)
+        crowd4.draw(motion_speed)
+        crowd5.draw(motion_speed)
         
         window.update()         # update window
 

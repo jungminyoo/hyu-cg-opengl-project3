@@ -2,7 +2,7 @@ from OpenGL.GL import *
 import glm
 
 from .object import Object
-from experience import Light, Node
+from experience import Light, Node, JointLinkNode
 from projections import Projection
 from cameras import Camera
 
@@ -15,7 +15,7 @@ class Cube(Object):
         camera: Camera, 
         projection: Projection, 
         light: Light,
-        node: Node, 
+        node: Node | JointLinkNode, 
         half_extent: float
     ):
         super().__init__(material_color, camera, projection, light, node, True)

@@ -1,8 +1,9 @@
 from dataclasses import dataclass, field
 import glm
 
-from .object import Object
+from .object import Object, ObjectWithoutLight
 from .diamond import Diamond
+from .character_bone import CharacterBone
 from cameras import Camera
 from projections import Projection
 from experience import JointLinkNode, Light
@@ -13,6 +14,7 @@ class BVHJoint:
     name: str
     node: "JointLinkNode | None" = None
     object: "Object | None" = None
+    bone_object: "ObjectWithoutLight | None" = None
     parent: "BVHJoint | None" = None
     offset: glm.vec3 = field(default_factory=lambda: glm.vec3(0, 0, 0))
     channels: list[str] = field(default_factory=list)
@@ -51,6 +53,7 @@ class Character:
         self._init_y_rotation = init_y_rotation
         self._is_playing = False
         self._current_frame_idx = 0
+        self._frame_elapsed_time = 0
         
         # parse bvh file
         self._bvh_data = self._load_bvh_and_parse(path)
@@ -63,55 +66,71 @@ class Character:
         
         # initialize objects
         for joint in self._bvh_data.joints:
-            cube = Diamond(color, camera, projection, light, joint.node, 0.1)
+            cube = Diamond(color, camera, projection, light, joint.node, 0.08)
             joint.object = cube
+            
+            if (joint.parent is not None) and (joint.parent.node is not None):
+                bone = CharacterBone(camera, projection, joint.node, joint.parent.node, color)
+                joint.bone_object = bone
 
     def play(self):
         self._is_playing = True
     def reset(self):
         self._current_frame_idx = 0
+        self._frame_elapsed_time = 0
+        
+    def _apply_frame(self, frame_idx: int):
+        current_frame = self._bvh_data.motion_values[frame_idx]
 
-    def draw(self):
+        for joint in self._bvh_data.joints:
+            M = glm.mat4()
+
+            for channel_idx in range(len(joint.channels)):
+                motion_idx = joint.channel_start_index + channel_idx
+                frame_value = current_frame[motion_idx]
+                channel = joint.channels[channel_idx]
+
+                if channel == "Xrotation":
+                    M *= glm.rotate(glm.radians(frame_value), (1, 0, 0))
+                elif channel == "Yrotation":
+                    M *= glm.rotate(glm.radians(frame_value), (0, 1, 0))
+                elif channel == "Zrotation":
+                    M *= glm.rotate(glm.radians(frame_value), (0, 0, 1))
+                elif channel == "Xposition":
+                    M *= glm.translate(
+                        glm.vec3(self._init_position.x, 0, 0) +
+                        glm.vec3(frame_value * self._scale, 0, 0)
+                    )
+                elif channel == "Yposition":
+                    M *= glm.translate(
+                        glm.vec3(0, self._init_position.y, 0) +
+                        glm.vec3(0, frame_value * self._scale, 0)
+                    )
+                elif channel == "Zposition":
+                    M *= glm.translate(
+                        glm.vec3(0, 0, self._init_position.z) +
+                        glm.vec3(0, 0, frame_value * self._scale)
+                    )
+
+            joint.node.set_joint_transform(M)
+
+        self._base_node.update_tree_global_transform()
+
+    def draw(self, delta: float):
         if self._is_playing:
-            current_frame = self._bvh_data.motion_values[self._current_frame_idx]
-            for joint in self._bvh_data.joints:
-                M = glm.mat4()
-                
-                for channel_idx in range(len(joint.channels)):
-                    frame_idx = joint.channel_start_index + channel_idx
-                    frame_value = current_frame[frame_idx]
-                    channel = joint.channels[channel_idx]
-                    
-                    if channel == "Xrotation":
-                        M *= glm.rotate(glm.radians(frame_value), (1,0,0))
-                    elif channel == "Yrotation":
-                        M *= glm.rotate(glm.radians(frame_value), (0,1,0))
-                    elif channel == "Zrotation":
-                        M *= glm.rotate(glm.radians(frame_value), (0,0,1))
-                    elif channel == "Xposition":
-                        M *= glm.translate(
-                            glm.vec3(self._init_position.x, 0, 0) +
-                            glm.vec3(frame_value * self._scale, 0, 0)
-                        )
-                    elif channel == "Yposition":
-                        M *= glm.translate(
-                            glm.vec3(0, self._init_position.y, 0) +
-                            glm.vec3(0, frame_value * self._scale, 0)
-                        )
-                    elif channel == "Zposition":
-                        M *= glm.translate(
-                            glm.vec3(0, 0, self._init_position.z) +
-                            glm.vec3(0, 0, frame_value * self._scale)
-                        )
-                
-                joint.node.set_joint_transform(M)
-        
-            self._base_node.update_tree_global_transform()
-            self._current_frame_idx += 1
-            self._current_frame_idx %= self._bvh_data.frames
-        
+            self._frame_elapsed_time += delta
+
+            while self._frame_elapsed_time >= self._bvh_data.frame_time:
+                self._current_frame_idx += 1
+                self._current_frame_idx %= self._bvh_data.frames
+                self._frame_elapsed_time -= self._bvh_data.frame_time
+
+        self._apply_frame(self._current_frame_idx)
+
         for joint in self._bvh_data.joints:
             joint.object.draw()
+            if joint.bone_object is not None:
+                joint.bone_object.draw()
         
     def _initialize_node(self, joint: BVHJoint, parent: JointLinkNode | None):
         node = JointLinkNode(parent, glm.translate(joint.offset * self._scale), glm.mat4())

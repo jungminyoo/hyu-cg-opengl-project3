@@ -28,6 +28,7 @@ class DanceBattleSystem:
         # system initialization
         self._dance_names = dance_names
         self._max_rounds = max_rounds
+        self._motion_speed = 1.0
 
         self._input = None
         self._turn = 1
@@ -51,6 +52,8 @@ class DanceBattleSystem:
 
         self._print_rules()
         input("If you understood the rules, press Enter to start the game.")
+        
+        self._set_motion_speed()
 
         self._start_game()
         self._start_input_thread()
@@ -76,6 +79,14 @@ class DanceBattleSystem:
     # -------------------------
     # Game Flow
     # -------------------------
+    def _set_motion_speed(self):
+        self._print_gap()
+        print("----------------------------------")
+        print("Before the game starts, please set the motion speed.")
+        print("If you set it a bit fast, then you can enjoy a very exciting dance battle.")
+        print("----------------------------------")
+        self._motion_speed = float(input("(default = 1.0) > "))
+    
     def _start_game(self):
         self._turn = 1
         self._user_score = 0
@@ -333,44 +344,31 @@ class DanceBattleSystem:
         print()
         print()
 
-    # -------------------------
-    # Properties for main.py
-    # -------------------------
+    @property
+    def motion_speed(self): return self._motion_speed
     @property
     def turn(self): return self._turn
-
     @property
     def user_score(self): return self._user_score
-
     @property
     def computer_score(self): return self._computer_score
-
     @property
     def computer_choice(self): return self._computer_choice
-
     @property
     def user_choice(self): return self._user_choice
-
     @property
     def current_user_choice(self): return self._current_user_choice
-
     @property
     def current_computer_choice(self): return self._current_computer_choice
-
     @property
     def whos_dancing(self): return self._whos_dancing
-
     @property
     def state(self): return self._state
-
     @property
     def round_winner(self): return self._round_winner
-
     @property
     def final_winner(self): return self._final_winner
-
     @property
     def is_finished(self): return self._is_finished
-
     @property
     def should_quit(self): return self._should_quit
